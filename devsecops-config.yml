@@ -1,0 +1,16 @@
+domain: SIGMA
+
+team:
+  - mus_code: 00RJ0008
+    mus_name: Change of telemetry-dispatcher team
+    mus_po_mail:
+      - mskamanin@sberbank.ru
+
+app:
+  sm_id: "15891918"
+  sm_name: telemetry-dispatcher
+
+sast_cx:
+  jira_area: INFRAP
+  preset_id: "100012"
+  wait_qg: "-1"

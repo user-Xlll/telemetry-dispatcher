@@ -1,0 +1,264 @@
+replicaCount: 1
+
+global:
+  dropapp: true
+
+telemetry-dispatcher:
+  project: ""
+
+  image:
+    name: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  args:
+    - --config=file:/mnt/telemetry-dispatcher/config.yaml
+
+  configMaps:
+    - name: telemetry-dispatcher-config
+      data:
+        config.yaml: |
+          receivers:
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+
+          processors:
+            batch:
+              send_batch_size: 100
+              send_batch_max_size: 400
+            attributes:
+              actions:
+                - key: segment
+                  value: delta
+                  action: insert
+                - key: datacenter
+                  value: bcod
+                  action: insert
+                - key: stand
+                  value: ift
+                  action: insert
+            transform:
+              log_statements:
+                - context: log
+                  statements:
+                    - set(attributes["log_prefix"], Concat([attributes["stand"], attributes["segment"], attributes["datacenter"], resource.attributes["service.name"]], "-"))
+
+          exporters:
+            nop: {}
+            debug:
+              verbosity: normal
+            otlp_grpc:
+              endpoint: ""
+              tls:
+                insecure: false
+              sending_queue:
+                batch:
+            opensearch:
+              dataset: otel
+              namespace: default
+              logs_index: "%{log_prefix}"
+              logs_index_fallback: "default"
+              logs_index_time_format: "yyyy.MM.dd"
+              http:
+                endpoint: ""
+                auth:
+                  authenticator: basicauth/client
+
+          extensions:
+            health_check:
+              endpoint: 0.0.0.0:13133
+            basicauth/client:
+              client_auth:
+                username_file: /mnt/pvs/username
+                password_file: /mnt/pvs/password
+
+          service:
+            extensions:
+              - health_check
+              - basicauth/client
+            pipelines:
+              logs:
+                receivers:
+                  - otlp
+                processors:
+                  - batch
+                  - attributes
+                  - transform
+                exporters:
+                  - debug
+                  - opensearch
+              metrics:
+                receivers:
+                  - otlp
+                exporters:
+                  - nop
+              traces:
+                receivers:
+                  - otlp
+                exporters:
+                  - nop
+
+  secman:
+    host: ""
+    namespace: ""
+    agent:
+      resources:
+        requests:
+          cpu: 32m
+          memory: 64Mi
+        limits:
+          cpu: 64m
+          memory: 64Mi
+    secrets:
+      - path: ""
+        volume: /mnt/pvs
+        file: username
+        template: "{{ .Data.user }}"
+      - path: ""
+        volume: /mnt/pvs
+        file: password
+        template: "{{ .Data.password }}"
+
+  port:
+    number: 13133
+    protocol: http
+
+  extraPorts:
+    - name: otlp-grpc
+      number: 4317
+      protocol: grpc
+    - name: otlp-http
+      number: 4318
+      protocol: http
+
+  volumes:
+    - name: telemetry-dispatcher-config
+      configMap: telemetry-dispatcher-config
+      mountPath: /mnt/telemetry-dispatcher/config.yaml
+      subPath: config.yaml
+
+# =======
+# Ingress
+# =======
+
+ingressgateway-telemetry-dispatcher:
+  project: ""
+  controlPanel: ""
+  commonName: ""
+
+  resources:
+    requests:
+      cpu: 64m
+      memory: 64Mi
+    limits:
+      cpu: 128m
+      memory: 128Mi
+
+  secman:
+    host: ""
+    namespace: ""
+    agent:
+      resources:
+        requests:
+          cpu: 32m
+          memory: 64Mi
+        limits:
+          cpu: 64m
+          memory: 64Mi
+    sberca:
+      fetch: ""
+    secrets:
+      - path: ""
+        file: alog.conf
+
+  ingress:
+    rules:
+      - host: ""
+        mtls: true
+        port:
+          number: 8080
+          protocol: http
+        paths:
+          - destination:
+              host: telemetry-dispatcher
+              port:
+                number: 13133
+      - host: ""
+        mtls: true
+        port:
+          number: 8081
+          protocol: http
+        paths:
+          - destination:
+              host: telemetry-dispatcher
+              port:
+                number: 4317
+      - host: ""
+        mtls: true
+        port:
+          number: 8082
+          protocol: http
+        paths:
+          - destination:
+              host: telemetry-dispatcher
+              port:
+                number: 4318
+
+# ======
+# Egress
+# ======
+
+egressgateway-telemetry-dispatcher:
+  project: ""
+  controlPanel: ""
+  commonName: ""
+
+  resources:
+    requests:
+      cpu: 64m
+      memory: 64Mi
+    limits:
+      cpu: 128m
+      memory: 128Mi
+
+  secman:
+    host: ""
+    namespace: ""
+    agent:
+      resources:
+        requests:
+          cpu: 32m
+          memory: 64Mi
+        limits:
+          cpu: 64m
+          memory: 64Mi
+    sberca:
+      fetch: ""
+    secrets:
+      - path: ""
+        file: alog.conf
+
+  egress:
+    rules:
+      pvs:
+        host: ""
+        ports:
+          - external: 19200
+            internal: 9090
+            protocol: tcp
+      otel-main:
+        host: ""
+        ports:
+          - external: 443
+            internal: 9091
+            protocol: tcp

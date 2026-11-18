@@ -1,0 +1,6 @@
+[submodule "deployment/helm/charts/chart-istio-proxy-openshift"]
+	path = deployment/helm/charts/chart-istio-proxy-openshift
+	url = ssh://git@stash.delta.sbrf.ru:7999/nimbus-ci-tools/chart-istio-proxy-openshift.git
+[submodule "deployment/helm/charts/chart-app-openshift"]
+	path = deployment/helm/charts/chart-app-openshift
+	url = ssh://git@stash.delta.sbrf.ru:7999/nimbus-ci-tools/chart-app-openshift.git
